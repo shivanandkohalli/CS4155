@@ -61,4 +61,11 @@ int init_access_ctrl_list(FILE *fp, unsigned char **acl_list)
     return acl_list_count;
 }
 
+FILE *init_output_csv(char *file_name)
+{
+	FILE *op_ptr = fopen(file_name,"w");
+	fprintf(op_ptr,"packet_no,ETHDestMAC,ETHSourceMAC,TYPE,HardwareType,ProtocolType,HardwareSize,ProtoSize,Opcode,SenderMAC,SenderIP,TargetMAC,TargetIP,Error/Notice,Reason\n");
+	return op_ptr;
+}
+
 

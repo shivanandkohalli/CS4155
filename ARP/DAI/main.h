@@ -24,4 +24,6 @@
 #include <netinet/ip.h>
 #include <net/if.h>
 
+extern FILE *output_ptr;
+
 #endif /* MAIN_H_ */

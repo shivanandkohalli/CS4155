@@ -11,6 +11,6 @@
 #define NO_OF_BYTES_IP 4
 #define NO_OF_BYTES_MAC 6
 
-int init_access_ctrl_list(FILE *fp, unsigned char **acl_list);
-
+extern int init_access_ctrl_list(FILE *fp, unsigned char **acl_list);
+extern FILE *init_output_csv(char *file_name);
 

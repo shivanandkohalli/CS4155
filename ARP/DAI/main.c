@@ -10,19 +10,26 @@
 #include "file_operations.h"
 #include "packet_analyser.h"
 
+FILE *output_ptr;
+
 
 int main(int argc,char **argv)
 {
-	FILE *fp;
+	FILE *config_file;
 
-	fp = fopen(argv[1],"r");
-	if(fp == NULL)
+	config_file = fopen(argv[1],"r");
+	if(config_file == NULL)
 	{
 		printf("ERROR: Configuration file not found, exiting");
-		return -1;
+		//return -1;
 	}
-	init_packet_analyser(fp);
+	init_packet_analyser(config_file);
+
+	output_ptr = init_output_csv(argv[3]);
+
 	initEvent(argv[2], "arp");
+
+	print_acl_list();
 	return 1;
 }
 
