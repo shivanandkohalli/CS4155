@@ -30,6 +30,7 @@ int main(int argc,char **argv)
 	initEvent(argv[2], "arp");
 
 	print_acl_list();
+	print_spam_check_db();
 	return 1;
 }
 

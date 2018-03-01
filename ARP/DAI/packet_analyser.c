@@ -12,6 +12,7 @@ unsigned char *acl_list[MAX_LENGTH_ACLCONFIG_FILE];
 int acl_list_count = 0;
 static unsigned int packet_count= 0;
 
+struct spam_check_database spam_check_db;
 
 void analyse_packet(int packet_length, const u_char* packet)
 {
@@ -20,6 +21,8 @@ void analyse_packet(int packet_length, const u_char* packet)
 	struct arp_header *arp_hdr;
 
 	int retval;
+
+	packet_count++; // Increment the number of packets received
 
 	if (packet_length < sizeof(struct ether_header))
 	{
@@ -41,70 +44,68 @@ void analyse_packet(int packet_length, const u_char* packet)
 	packet_length -= sizeof(struct ether_header);
 
 	arp_hdr = (struct arp_header *)packet;
-//	printf("Hardware type %d\r\n",ntohs(arp_hdr->hardware_type));
-//	printf("Protocol type %x\r\n",ntohs(arp_hdr->protocol_type));
-//	printf("hardware_len %d\r\n",(arp_hdr->hardware_len));
-//	printf("protocol_len %d\r\n",(arp_hdr->protocol_len));
-//	printf("opcode %d\r\n",ntohs(arp_hdr->opcode));
 
-//    if(find_in_acl(arp_hdr->sender_mac, arp_hdr->sender_ip))
-//    {
-//    	printf("Present in list");
-//    }
-//    else
-//    {
-//    	printf("Not present in list");
-//    }
+	retval = check_ip_spoofing(arp_hdr->sender_mac,arp_hdr->sender_ip);
 
-      retval = check_ip_spoofing(arp_hdr->sender_mac,arp_hdr->sender_ip);
+	if(ntohs(arp_hdr->opcode) == REPLY){
+		switch(retval)
+		{
+		case FLAG_NO_ERROR:
+			// Nothing to be done
+			printf("No Error");
+			break;
+		case FLAG_ADD_TO_LIST:
+			add_to_acl_list(arp_hdr->sender_mac,arp_hdr->sender_ip);
+			printf("Add to List");
+			break;
+		case FLAG_ERROR_PACKET:
+			//fprintf(output_ptr,"%d,0x%x,%d,%d",ntohs(arp_hdr->hardware_type),ntohs(arp_hdr->protocol_type),arp_hdr->hardware_len,arp_hdr->protocol_len);
+			print_to_outputcsv(eth_hdr,arp_hdr,FLAG_ERROR_PACKET,ERROR_IP_SPOOFING);
+			printf("Error packet");
+			break;
+		default:
+			printf("Control should not come here, program error");
+			break;
+		}
+	}
 
-      if(ntohs(arp_hdr->opcode) == REPLY){
-		  switch(retval)
-		  {
-		  case FLAG_NO_ERROR:
-			  // Nothing to be done
-			  printf("No Error");
-			  break;
-		  case FLAG_ADD_TO_LIST:
-			  add_to_acl_list(arp_hdr->sender_mac,arp_hdr->sender_ip);
-			  printf("Add to List");
-			  break;
-		  case FLAG_ERROR_PACKET:
-			  //fprintf(output_ptr,"%d,0x%x,%d,%d",ntohs(arp_hdr->hardware_type),ntohs(arp_hdr->protocol_type),arp_hdr->hardware_len,arp_hdr->protocol_len);
-			  print_to_outputcsv(eth_hdr,arp_hdr,FLAG_ERROR_PACKET,ERROR_IP_SPOOFING);
-			  printf("Error packet");
-			  break;
-		  default:
-			  printf("Control should not come here, program error");
-			  break;
-		  }
+	retval = check_mac_consistency(eth_hdr,arp_hdr);
+	switch(retval)
+	{
+	case NO_ERROR:
+		// Nothing to do
+		break;
+	case NOTICE_NOT_BROADCAST:
+		print_to_outputcsv(eth_hdr,arp_hdr,FLAG_NOTICE_PACKET,NOTICE_NOT_BROADCAST);
+		break;
+	case NOTICE_REPLY_BROADCAST:
+		print_to_outputcsv(eth_hdr,arp_hdr,FLAG_NOTICE_PACKET,NOTICE_REPLY_BROADCAST);
+		break;
+	case ERROR_DESTINATION_MISMATCH:
+		print_to_outputcsv(eth_hdr,arp_hdr,FLAG_ERROR_PACKET,ERROR_DESTINATION_MISMATCH);
+		break;
+	case ERROR_SOURCE_MISMATCH:
+		print_to_outputcsv(eth_hdr,arp_hdr,FLAG_ERROR_PACKET,ERROR_SOURCE_MISMATCH);
+		break;
+	default:
+		printf("Code Error fun:check_mac_consistency:Shouldnt reach here");
+		break;
+	}
 
 
-      }
+	if(ntohs(arp_hdr->opcode) == ARP_REQUEST)
+	{
+		check_if_spamming(eth_hdr,arp_hdr);
+	}
+	else if(ntohs(arp_hdr->opcode) == ARP_REPLY)
+	{
+		if(check_ip_consistency(arp_hdr) == TRUE)
+		{
+			print_to_outputcsv(eth_hdr,arp_hdr,FLAG_ERROR_PACKET,ERROR_SOURCEIP_BROADCAST);
+		}
+	}
 
-      retval = check_mac_consistency(eth_hdr,arp_hdr);
-      switch(retval)
-      {
-      case NO_ERROR:
-    	  // Nothing to do
-    	  break;
-      case NOTICE_NOT_BROADCAST:
-    	  print_to_outputcsv(eth_hdr,arp_hdr,FLAG_NOTICE_PACKET,NOTICE_NOT_BROADCAST);
-    	  break;
-      case NOTICE_REPLY_BROADCAST:
-    	  print_to_outputcsv(eth_hdr,arp_hdr,FLAG_NOTICE_PACKET,NOTICE_REPLY_BROADCAST);
-    	  break;
-      case ERROR_DESTINATION_MISMATCH:
-    	  print_to_outputcsv(eth_hdr,arp_hdr,FLAG_ERROR_PACKET,ERROR_DESTINATION_MISMATCH);
-    	  break;
-      case ERROR_SOURCE_MISMATCH:
-    	  print_to_outputcsv(eth_hdr,arp_hdr,FLAG_ERROR_PACKET,ERROR_SOURCE_MISMATCH);
-    	  break;
-      default:
-    	  printf("Error check_mac_consistency:Shouldnt reach here");
-    	  break;
-      }
-      printf("\r\n\r\n\r\n");
+	printf("\r\n\r\n\r\n");
 }
 
 static int is_mac_broadcast(unsigned char *address)
@@ -138,7 +139,7 @@ int check_mac_consistency(struct ether_header *eth_hdr, struct arp_header *arp_h
 	else if(ntohs(arp_hdr->opcode) == ARP_REPLY)
 	{
 		if(is_mac_broadcast(eth_hdr->ether_dhost) == TRUE)
-					return NOTICE_REPLY_BROADCAST;
+			return NOTICE_REPLY_BROADCAST;
 		else
 		{
 			for(i=0;i<MAC_LENGTH;i++)
@@ -151,7 +152,17 @@ int check_mac_consistency(struct ether_header *eth_hdr, struct arp_header *arp_h
 	return NO_ERROR;
 }
 
+int check_ip_consistency(struct arp_header *arp_hdr)
+{
+	unsigned char broadcast1[4] = {255,255,255,255};
+	unsigned char broadcast2[4] = {0,0,0,0};
 
+	if(check_ip_same(arp_hdr->sender_ip,broadcast1) == TRUE || check_ip_same(arp_hdr->sender_ip,broadcast2) == TRUE)
+	{
+		return TRUE;
+	}
+	return FALSE;
+}
 void add_to_acl_list(unsigned char *mac,unsigned char *ip)
 {
 	int i=0;
@@ -165,7 +176,7 @@ void add_to_acl_list(unsigned char *mac,unsigned char *ip)
 	//increment the count of acl_list
 	acl_list_count++;
 }
-static int check_ip_same(unsigned char *ip1, unsigned char *ip2)
+int check_ip_same(unsigned char *ip1, unsigned char *ip2)
 {
 	int j=0;
 	int retval = TRUE;
@@ -230,41 +241,36 @@ int find_in_acl(unsigned char *sender_mac, unsigned char *sender_ip)
 
 	for(i=0;i<acl_list_count;i++)
 	{
-	retval = TRUE;
-	mac_ip = acl_list[i];
-	for(j=0;j<4;j++)
-	{
-		if(mac_ip[j] != sender_ip[j]){
-			retval = FALSE;
-			break;
+		retval = TRUE;
+		mac_ip = acl_list[i];
+		for(j=0;j<4;j++)
+		{
+			if(mac_ip[j] != sender_ip[j]){
+				retval = FALSE;
+				break;
+			}
 		}
-	}
-	if(retval == FALSE)
-		continue;
+		if(retval == FALSE)
+			continue;
 
-	for(j=4;j<10;j++)
-	{
-		if(mac_ip[j] != sender_mac[j-4]){
-			retval = FALSE;
-			break;
+		for(j=4;j<10;j++)
+		{
+			if(mac_ip[j] != sender_mac[j-4]){
+				retval = FALSE;
+				break;
+			}
 		}
+
+		if(retval == TRUE)
+			break;
 	}
 
-	if(retval == TRUE)
-		break;
+	return retval;
+
+
 }
 
-return retval;
 
-
-}
-
-
-
-//void construct_macip_str(sender_mac, sender_ip, mac_ip);
-//{
-//
-//}
 void print_acl_list()
 {
 	int i = 0;
@@ -284,6 +290,7 @@ void print_acl_list()
 void init_packet_analyser(FILE *fp)
 {
 	acl_list_count = init_access_ctrl_list(fp, acl_list);
+	init_spam_check_db();
 	//print_acl_list();
 }
 
@@ -313,7 +320,7 @@ static void print_ip(unsigned char *ip)
 static void print_eth_header(struct ether_header *eth_hdr)
 {
 
-	fprintf(output_ptr,"Packet_%d,",packet_count++);
+	fprintf(output_ptr,"Packet_%d,",packet_count);
 	print_mac(eth_hdr->ether_dhost);
 	print_mac(eth_hdr->ether_shost);
 	fprintf(output_ptr,"ARP,");
@@ -322,11 +329,6 @@ static void print_eth_header(struct ether_header *eth_hdr)
 
 static void print_arp_header(struct arp_header *arp_hdr)
 {
-	//	printf("Hardware type %d\r\n",ntohs(arp_hdr->hardware_type));
-	//	printf("Protocol type %x\r\n",ntohs(arp_hdr->protocol_type));
-	//	printf("hardware_len %d\r\n",(arp_hdr->hardware_len));
-	//	printf("protocol_len %d\r\n",(arp_hdr->protocol_len));
-	//	printf("opcode %d\r\n",ntohs(arp_hdr->opcode));
 	fprintf(output_ptr,"Ethernet,"); // Taking a risk here
 	if(ntohs(arp_hdr->protocol_type) == 0x800)
 		fprintf(output_ptr,"IP,");
@@ -369,24 +371,104 @@ void print_to_outputcsv(struct ether_header *eth_hdr,struct arp_header *arp_hdr,
 	case ERROR_IP_SPOOFING:
 		fprintf(output_ptr,"IP Spoofing,");
 		break;
-    case NOTICE_NOT_BROADCAST:
-    	fprintf(output_ptr,"Not a broadcast request,");
-  	  break;
-    case NOTICE_REPLY_BROADCAST:
-    	fprintf(output_ptr,"Reply is broadcast, Gratuitous ARP,");
-  	  break;
-    case ERROR_DESTINATION_MISMATCH:
-    	fprintf(output_ptr,"Destination MAC don't match,");
-  	  break;
-    case ERROR_SOURCE_MISMATCH:
-    	fprintf(output_ptr,"Source MAC don't match,");
-  	  break;
+	case NOTICE_NOT_BROADCAST:
+		fprintf(output_ptr,"Not a broadcast request,");
+		break;
+	case NOTICE_REPLY_BROADCAST:
+		fprintf(output_ptr,"Reply is broadcast Gratuitous ARP,");
+		break;
+	case NOTICE_SPAM_REQUEST:
+		fprintf(output_ptr,"Requested the same details more than %d times,",CONFIG_SPAM_DETECT_THRESHOLD);
+		break;
+	case ERROR_DESTINATION_MISMATCH:
+		fprintf(output_ptr,"Destination MAC don't match in ARP and ETH header,");
+		break;
+	case ERROR_SOURCE_MISMATCH:
+		fprintf(output_ptr,"Source MAC don't match in ARP and ETH header,");
+		break;
+	case ERROR_SOURCEIP_BROADCAST:
+		fprintf(output_ptr,"Host is trying to bind IP broadcast address to its MAC,");
+		break;
 	default:
 		break;
 	}
 
 	fprintf(output_ptr,"\n");
 
+}
+
+
+void init_spam_check_db()
+{
+	int i=0;
+	for(i=0;i<CONFIG_SPAM_DB_SIZE;i++)
+	{
+		spam_check_db.spam_count[i]=0; // TODO: Use memset
+	}
+	spam_check_db.db_count = 0;
+	printf("DB initialized\r\n");
+}
+
+void add_to_spam_check_db(struct ether_header *eth_hdr, struct arp_header *arp_hdr)
+{
+	int db_position = spam_check_db.db_count;
+	if(db_position >= CONFIG_SPAM_DB_SIZE-1) // To prevent overflow
+		return;// TODO: Do error handling
+
+	spam_check_db.eth_hdr[db_position] = (struct ether_header *)malloc(sizeof(struct ether_header));
+	memcpy(spam_check_db.eth_hdr[db_position],eth_hdr,sizeof(struct ether_header));
+
+	spam_check_db.arp_hdr[db_position] = (struct arp_header *)malloc(sizeof(struct arp_header));
+	memcpy(spam_check_db.arp_hdr[db_position],arp_hdr,sizeof(struct arp_header));
+
+	spam_check_db.spam_count[db_position]++;
+
+	spam_check_db.db_count++;
+}
+
+void check_if_spamming(struct ether_header *eth_hdr, struct arp_header *arp_hdr)
+{
+	int db_count = spam_check_db.db_count, i;
+
+	struct arp_header *arp_hdr_db;
+
+	for(i=0;i<db_count;i++)
+	{
+		arp_hdr_db = spam_check_db.arp_hdr[i];
+
+		if(check_ip_same(arp_hdr_db->target_ip,arp_hdr->target_ip) == TRUE && check_mac_same(arp_hdr_db->sender_mac,arp_hdr->sender_mac) == TRUE)
+		{
+			printf("Recieved same request");
+			spam_check_db.spam_count[i]++; // increment the spam count
+			return;
+		}
+	}
+
+	// Request not in db, add it
+	add_to_spam_check_db(eth_hdr,arp_hdr);
+}
+
+void print_spam_check_db()
+{
+	int db_count = spam_check_db.db_count, i;
+
+	struct ether_header *eth_hdr;
+	struct arp_header *arp_hdr;
+
+	for(i=0;i<db_count;i++)
+	{
+		eth_hdr = spam_check_db.eth_hdr[i];
+		arp_hdr = spam_check_db.arp_hdr[i];
+
+		//printf("DB%d,0x%x,%d,%d\r\n",ntohs(arp_hdr->hardware_type),ntohs(arp_hdr->protocol_type),arp_hdr->hardware_len,arp_hdr->protocol_len);
+		//printf("Spam count %d\r\n",spam_check_db.spam_count[i]);
+
+		if(spam_check_db.spam_count[i] >= CONFIG_SPAM_DETECT_THRESHOLD)
+		{
+			packet_count++;
+			print_to_outputcsv(eth_hdr, arp_hdr,FLAG_NOTICE_PACKET,NOTICE_SPAM_REQUEST);
+		}
+	}
 }
 
 

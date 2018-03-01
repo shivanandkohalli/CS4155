@@ -12,6 +12,7 @@
 #define FALSE 0
 
 #include <stdio.h>
+#include <string.h>
 #include <pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
