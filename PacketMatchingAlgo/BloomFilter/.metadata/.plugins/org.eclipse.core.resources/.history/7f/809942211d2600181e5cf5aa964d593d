@@ -1,0 +1,29 @@
+import java.util.HashMap;
+import java.util.Map;
+
+
+public class Trie {
+	private TrieNode root;
+	
+	public Trie()
+	{
+		// initialise the root with a TrieNode
+		root = new TrieNode();
+	}
+	
+	public void insertData(String s)
+	{
+		TrieNode presentNode = root;
+		
+		for (int i=0;i<s.length();i++)
+		{
+			Map<String, TrieNode> presentChild = presentNode.getChild();
+			char toInsert = s.charAt(i);
+			
+			if(presentChild.containsValue(toInsert) == true)
+			{
+				presentNode = presentChild.get(toInsert);
+			}
+		}
+	}
+}

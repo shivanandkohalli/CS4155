@@ -1,0 +1,68 @@
+import java.util.HashMap;
+import java.util.Map;
+
+
+public class Trie {
+	private TrieNode root;
+	private static int searchCount = 0;
+	
+	public static int getSearchCount() {
+		return searchCount;
+	}
+
+	public Trie()
+	{
+		// initialise the root with a TrieNode
+		root = new TrieNode();
+	}
+	
+	public void insertData(String s)
+	{
+		TrieNode presentNode = root;
+		
+		for (int i=0;i<s.length();i++)
+		{
+			Map<Character, TrieNode> presentChild = presentNode.getChild();
+			Character toInsert = s.charAt(i);
+			
+			if(presentChild.containsKey(toInsert) == true)
+			{
+				presentNode = presentChild.get(toInsert);
+			}
+			else
+			{
+				presentNode = presentNode.addToChild(toInsert);
+			}
+		}
+		
+		presentNode.setMatch(true);
+	}
+	
+	public boolean searchData(String s)
+	{
+		TrieNode presentNode = root;
+		
+		for (int i=0;i<s.length();i++)
+		{
+			Trie.searchCount++;
+			Map<Character, TrieNode> presentChild = presentNode.getChild();
+			Character c = s.charAt(i);
+			
+			if(presentChild.containsKey(c))
+			{
+				presentNode = presentChild.get(c);
+				if(presentNode.isMatch() == true)
+					return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+		
+		if(presentNode.isMatch() == true)
+			return true;
+		else
+			return false;
+	}
+}

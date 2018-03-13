@@ -1,0 +1,10 @@
+
+public class BloomFilter {
+	
+	// @params: 
+	public BloomFilter(int size, int k)
+	{
+		
+	}
+
+}

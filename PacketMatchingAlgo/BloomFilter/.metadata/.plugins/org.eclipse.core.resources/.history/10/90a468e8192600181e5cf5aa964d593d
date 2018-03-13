@@ -1,0 +1,6 @@
+import java.util.Map;
+
+
+public class TrieNode {
+	private Map<String,TrieNode> child;
+}

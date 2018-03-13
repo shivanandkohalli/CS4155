@@ -1,0 +1,14 @@
+import java.util.HashMap;
+import java.util.Map;
+
+
+public class TrieNode {
+	private Map<String,TrieNode> child;
+	private boolean isMatch;
+	
+	public TrieNode()
+	{
+		child = new HashMap<String, TrieNode>();
+		isMatch = false;
+	}
+}

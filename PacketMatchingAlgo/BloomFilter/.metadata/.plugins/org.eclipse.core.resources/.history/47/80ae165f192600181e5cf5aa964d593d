@@ -1,0 +1,16 @@
+import java.util.BitSet;
+
+
+public class BloomFilter {
+	
+	private BitSet bit_array;
+	// @param size The total size of the bloom filter, so many bits will be allocated
+	// @param k The 
+	public BloomFilter(int size, int k)
+	{
+		bit_array = new BitSet(size);
+	}
+	
+	
+
+}

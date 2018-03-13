@@ -1,0 +1,10 @@
+
+public class Trie {
+	private TrieNode root;
+	
+	public Trie()
+	{
+		// initialise the root
+		root = new TrieNode();
+	}
+}

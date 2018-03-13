@@ -1,0 +1,16 @@
+
+public class Trie {
+	private TrieNode root;
+	
+	public Trie()
+	{
+		// initialise the root with a TrieNode
+		root = new TrieNode();
+	}
+	
+	public void insertData(String s)
+	{
+		TrieNode present = root;
+		
+	}
+}
