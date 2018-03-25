@@ -1,0 +1,14 @@
+digraph {
+state_start->client_hello[label="1.0"];
+change_cipher_spec->application_data[label="0.142857142857"];
+change_cipher_spec->hello_request[label="0.857142857143"];
+application_data->change_cipher_spec[label="0.0032154340836"];
+application_data->application_data[label="0.990353697749"];
+application_data->state_end[label="0.0064308681672"];
+hello_request->change_cipher_spec[label="0.166666666667"];
+hello_request->application_data[label="0.166666666667"];
+hello_request->hello_request[label="0.666666666667"];
+client_hello->server_hello[label="1.0"];
+server_hello->client_key_exchange[label="1.0"];
+client_key_exchange->change_cipher_spec[label="1.0"];
+}

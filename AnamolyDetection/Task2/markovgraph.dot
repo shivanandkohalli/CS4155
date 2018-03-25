@@ -1,0 +1,17 @@
+digraph {
+state_start->client_hello[label="1.0"];
+change_cipher_spec->change_cipher_spec[label="0.430199430199"];
+change_cipher_spec->application_data[label="0.558404558405"];
+change_cipher_spec->alert[label="0.011396011396"];
+application_data->change_cipher_spec[label="0.0305676855895"];
+application_data->application_data[label="0.856519026825"];
+application_data->alert[label="0.103555832813"];
+application_data->state_end[label="0.0093574547723"];
+alert->change_cipher_spec[label="0.00584795321637"];
+alert->application_data[label="0.198830409357"];
+alert->alert[label="0.0116959064327"];
+alert->state_end[label="0.783625730994"];
+client_hello->server_hello[label="1.0"];
+server_hello->client_key_exchange[label="1.0"];
+client_key_exchange->change_cipher_spec[label="1.0"];
+}
